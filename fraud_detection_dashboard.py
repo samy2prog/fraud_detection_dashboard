@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 import hashlib
 
 # Connexion à la base de données PostgreSQL (Supabase)
-DATABASE_URL = "postgresql://postgres:xD3erNjIF6vrRRD6@db.yawimpxwrcadpsizozfp.supabase.co:5432/postgres?sslmode=require"
+DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
 
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
