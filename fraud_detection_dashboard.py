@@ -18,9 +18,12 @@ except Exception as e:
 def load_fingerprints():
     try:
         query = text("""
-            SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
-                   refund_count, payment_attempts, country_ip, country_shipping, created_at 
-            FROM user_fingerprints
+            SELECT uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
+                   uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at, 
+                   COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN 1 ELSE 0 END), 0) AS refund_count
+            FROM user_fingerprints uf
+            LEFT JOIN transactions t ON uf.id = t.user_id
+            GROUP BY uf.id
         """)
         with engine.connect() as conn:
             df = pd.read_sql(query, conn)
@@ -59,14 +62,15 @@ def calculate_risk_score(df):
     df['fingerprint_count'] = df.groupby('ip_address')['fingerprint'].transform('nunique')
     df['risk_score'] += df['fingerprint_count'] * 10
     
-    if 'refund_count' in df.columns:
-        df['refund_requests'] = df.groupby('fingerprint')['refund_count'].transform('sum')
-        df['risk_score'] += df['refund_requests'] * 15
-    
     df['risk_score'] += df['payment_attempts'] * 5
     df['risk_score'] += df.apply(lambda row: 25 if row['country_ip'] != row['country_shipping'] else 0, axis=1)
     df['fingerprint_recurrence'] = df.groupby('fingerprint')['ip_address'].transform('count')
     df['risk_score'] += df['fingerprint_recurrence'] * 8
+    
+    df['risk_score'] += df['refund_count'] * 15
+    df['risk_score'] += df.apply(lambda row: 20 if row['refund_count'] > 2 else 0, axis=1)
+    df['risk_score'] += df.apply(lambda row: 30 if row['refund_count'] + row['payment_attempts'] > 5 else 0, axis=1)
+    
     df['risk_score'] = df['risk_score'].clip(0, 100)
     return df
 
@@ -123,5 +127,3 @@ if not transactions_data.empty:
     st.subheader("💳 Transactions")
     st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Type Transaction", "Montant"]])
-
-
