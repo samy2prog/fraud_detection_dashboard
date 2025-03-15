@@ -6,16 +6,27 @@ import hashlib
 
 # Connexion à la base de données PostgreSQL (Supabase)
 DATABASE_URL = "postgresql://postgres:XGXgDGiGuhzbnfFH@db.yawimpxwrcadpsizozfp.supabase.co:5432/postgres"
-engine = create_engine(DATABASE_URL)
+
+try:
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    conn = engine.connect()
+    conn.close()
+except Exception as e:
+    st.error(f"Erreur de connexion à la base de données : {e}")
 
 def load_data():
-    query = text("""
-        SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
-               refund_count, payment_attempts, country_ip, country_shipping, created_at 
-        FROM user_fingerprints
-    """)
-    df = pd.read_sql(query, engine)
-    return df
+    try:
+        query = text("""
+            SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
+                   refund_count, payment_attempts, country_ip, country_shipping, created_at 
+            FROM user_fingerprints
+        """)
+        with engine.connect() as conn:
+            df = pd.read_sql(query, conn)
+        return df
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des données : {e}")
+        return pd.DataFrame()
 
 def generate_fingerprint(df):
     df['fingerprint'] = df.apply(lambda row: hashlib.sha256(
