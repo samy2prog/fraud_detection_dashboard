@@ -1,5 +1,7 @@
-streamlit
-pandas
+fastapi
+uvicorn
 sqlalchemy
 psycopg2-binary
 requests
+pandas
+
