@@ -1,28 +1,47 @@
-// Script de collecte des empreintes numériques des utilisateurs
-// À intégrer sur une page HTML
-
 (async function() {
-    // Récupérer les informations du navigateur
-    const fingerprint = {
-        user_agent: navigator.userAgent,
-        ip_address: await fetch('https://api64.ipify.org?format=json')
-            .then(response => response.json())
-            .then(data => data.ip)
-            .catch(() => '0.0.0.0'), // Fallback en cas d'échec
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        screen_resolution: `${window.screen.width}x${window.screen.height}`,
-        language: navigator.language
-    };
+    try {
+        console.log("📡 Détection de l'empreinte numérique...");
 
-    // Envoyer les données à l'API
-    fetch('http://127.0.0.1:8000/collect_fingerprint/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(fingerprint)
-    })
-    .then(response => response.json())
-    .then(data => console.log('Fingerprint stored:', data))
-    .catch(error => console.error('Error storing fingerprint:', error));
+        // Récupérer l'adresse IP publique (IPv4/IPv6)
+        let ip_address = '0.0.0.0'; // Valeur par défaut
+        try {
+            const ipResponse = await fetch('https://api64.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            ip_address = ipData.ip;
+        } catch (error) {
+            console.warn("⚠️ Impossible de récupérer l'adresse IP :", error);
+        }
+
+        // Récupérer les informations du navigateur
+        const fingerprint = {
+            user_agent: navigator.userAgent,
+            ip_address: ip_address,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            screen_resolution: `${window.screen.width}x${window.screen.height}`,
+            language: navigator.language
+        };
+
+        console.log("📌 Empreinte générée :", fingerprint);
+
+        // Envoyer les données à l'API FastAPI sur Render
+        const apiUrl = "https://TON_API_RENDER.onrender.com/collect_fingerprint/";  // ⚠️ Remplace par ton URL réelle !
+
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(fingerprint)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erreur API : ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("✅ Empreinte stockée avec succès :", data);
+
+    } catch (error) {
+        console.error("❌ Erreur lors de la collecte de l'empreinte :", error);
+    }
 })();
