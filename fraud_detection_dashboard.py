@@ -6,7 +6,7 @@ import hashlib
 import os
 
 # Connexion à la base de données PostgreSQL
-DATABASE_URL = "postgresql://fraud_admin:password@localhost:5432/fraud_detection"
+DATABASE_URL = "postgresql://postgres:XGXgDGiGuhzbnfFH@db.yawimpxwrcadpsizozfp.supabase.co:5432/postgres"
 engine = create_engine(DATABASE_URL)
 
 # Charger les données de la base PostgreSQL
