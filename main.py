@@ -1,29 +1,26 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 import uuid
+import os
 
-# Configuration de l'API
+# Initialisation de l'application FastAPI
 app = FastAPI()
-
-# Configuration CORS pour autoriser les requêtes depuis le site web (site1)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Met "*" pour tout autoriser ou spécifie ["https://site1bis.onrender.com"]
-    allow_credentials=True,
-    allow_methods=["*"],  # Permet toutes les méthodes (GET, POST, etc.)
-    allow_headers=["*"],  # Autorise tous les headers
-)
 
 # Connexion à la base de données PostgreSQL (NeonDB)
 DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
-
-# Création de l'engine SQLAlchemy
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-# Modèle de données pour recevoir les empreintes numériques
+# ✅ Vérification de la connexion
+try:
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    print("✅ Connexion réussie à la base PostgreSQL !")
+except Exception as e:
+    print(f"❌ Erreur de connexion à la base : {e}")
+
+# 📌 **Modèle des empreintes numériques**
 class UserFingerprint(BaseModel):
     user_agent: str
     ip_address: str
@@ -36,16 +33,40 @@ class UserFingerprint(BaseModel):
     country_ip: str
     country_shipping: str
 
-# Endpoint pour collecter l'empreinte numérique
+# 📌 **Modèle des transactions (achats & remboursements)**
+class TransactionModel(BaseModel):
+    user_agent: str
+    ip_address: str
+    timezone: str
+    screen_resolution: str
+    language: str
+    transaction_type: str  # "purchase" ou "refund"
+    amount: float
+
+# ✅ **Autoriser CORS pour permettre les requêtes entre Site1 & FastAPI**
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # ⛔ À restreindre en production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 📌 **Endpoint pour collecter l'empreinte numérique**
 @app.post("/collect_fingerprint/")
 async def collect_fingerprint(fingerprint: UserFingerprint):
     try:
-        user_id = str(uuid.uuid4())  # Génération d'un identifiant unique
+        user_id = str(uuid.uuid4())  # 🔹 Génération d'un ID unique
         query = text("""
-            INSERT INTO user_fingerprints (id, user_agent, ip_address, timezone, screen_resolution, language,
-                                           account_age, average_refund_time, payment_attempts, country_ip, country_shipping)
-            VALUES (:id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
-                    :account_age, :average_refund_time, :payment_attempts, :country_ip, :country_shipping)
+            INSERT INTO user_fingerprints (
+                id, user_agent, ip_address, timezone, screen_resolution, language, 
+                account_age, average_refund_time, payment_attempts, country_ip, country_shipping
+            ) VALUES (
+                :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
+                :account_age, :average_refund_time, :payment_attempts, :country_ip, :country_shipping
+            )
         """)
         with engine.connect() as conn:
             conn.execute(query, {
@@ -66,49 +87,59 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement: {str(e)}")
 
-# Endpoint pour récupérer les empreintes numériques
-@app.get("/fingerprints/")
-async def get_fingerprints():
-    try:
-        query = text("SELECT * FROM user_fingerprints")
-        with engine.connect() as conn:
-            fingerprints = conn.execute(query).fetchall()
-        return {"data": [dict(row) for row in fingerprints]}
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données: {str(e)}")
-
-# Endpoint pour enregistrer une transaction
-class TransactionData(BaseModel):
-    user_agent: str
-    ip_address: str
-    amount: float
-    payment_method: str
-    transaction_status: str
-
+# 📌 **Endpoint pour collecter les transactions**
 @app.post("/transaction/")
-async def record_transaction(transaction: TransactionData):
+async def collect_transaction(transaction: TransactionModel):
     try:
-        transaction_id = str(uuid.uuid4())
+        transaction_id = str(uuid.uuid4())  # 🔹 Génération d'un ID unique
         query = text("""
-            INSERT INTO transactions (id, user_agent, ip_address, amount, payment_method, transaction_status)
-            VALUES (:id, :user_agent, :ip_address, :amount, :payment_method, :transaction_status)
+            INSERT INTO transactions (
+                id, user_agent, ip_address, timezone, screen_resolution, language, 
+                transaction_type, amount
+            ) VALUES (
+                :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
+                :transaction_type, :amount
+            )
         """)
         with engine.connect() as conn:
             conn.execute(query, {
                 "id": transaction_id,
                 "user_agent": transaction.user_agent,
                 "ip_address": transaction.ip_address,
-                "amount": transaction.amount,
-                "payment_method": transaction.payment_method,
-                "transaction_status": transaction.transaction_status
+                "timezone": transaction.timezone,
+                "screen_resolution": transaction.screen_resolution,
+                "language": transaction.language,
+                "transaction_type": transaction.transaction_type,
+                "amount": transaction.amount
             })
             conn.commit()
         return {"message": "Transaction enregistrée avec succès", "transaction_id": transaction_id}
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement de la transaction: {str(e)}")
 
-# Vérification du bon fonctionnement de l'API
-@app.get("/")
-async def root():
-    return {"message": "API de détection de fraude est en ligne !"}
+# 📌 **Endpoint pour récupérer toutes les empreintes**
+@app.get("/fingerprints/")
+async def get_fingerprints():
+    try:
+        query = text("SELECT * FROM user_fingerprints")
+        with engine.connect() as conn:
+            fingerprints = conn.execute(query).fetchall()
+        return {"data": [dict(row._mapping) for row in fingerprints]}
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
 
+# 📌 **Endpoint pour récupérer toutes les transactions**
+@app.get("/transactions/")
+async def get_transactions():
+    try:
+        query = text("SELECT * FROM transactions")
+        with engine.connect() as conn:
+            transactions = conn.execute(query).fetchall()
+        return {"data": [dict(row._mapping) for row in transactions]}
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des transactions: {str(e)}")
+
+# ✅ **Lancer l'API avec Uvicorn**
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
