@@ -12,7 +12,7 @@ try:
     conn = engine.connect()
     conn.close()
 except Exception as e:
-    st.error(f"Erreur de connexion à la base de données : {e}")
+    st.error(f"❌ Erreur de connexion à la base de données : {e}")
 
 # Charger les données des empreintes numériques
 def load_fingerprints():
@@ -24,7 +24,7 @@ def load_fingerprints():
                    COALESCE(SUM(t.amount), 0) AS total_spent,
                    COUNT(t.id) AS total_transactions
             FROM user_fingerprints uf
-            LEFT JOIN transactions t ON uf.id = t.user_id
+            LEFT JOIN transactions t ON uf.id = t.fingerprint_id
             GROUP BY uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
                      uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at
         """)
@@ -32,14 +32,14 @@ def load_fingerprints():
             df = pd.read_sql(query, conn)
         return df
     except Exception as e:
-        st.error(f"Erreur lors du chargement des empreintes numériques : {e}")
+        st.error(f"❌ Erreur lors du chargement des empreintes numériques : {e}")
         return pd.DataFrame()
 
 # Charger les transactions
 def load_transactions():
     try:
         query = text("""
-            SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
+            SELECT fingerprint_id, user_agent, ip_address, screen_resolution, timezone, language, 
                    transaction_type, amount, created_at 
             FROM transactions
         """)
@@ -47,7 +47,7 @@ def load_transactions():
             df = pd.read_sql(query, conn)
         return df
     except Exception as e:
-        st.error(f"Erreur lors du chargement des transactions : {e}")
+        st.error(f"❌ Erreur lors du chargement des transactions : {e}")
         return pd.DataFrame()
 
 # Générer un identifiant unique basé sur plusieurs caractéristiques
@@ -78,8 +78,8 @@ def calculate_risk_score(df):
     return df
 
 # Interface Streamlit
-st.title("Fraud Detection Dashboard")
-st.write("Ce tableau de bord affiche les empreintes numériques et les transactions suspectes.")
+st.title("\U0001F4CA Fraud Detection Dashboard")
+st.write("\U0001F6A8 Ce tableau de bord affiche les empreintes numériques et les transactions suspectes.")
 
 # Charger les empreintes et transactions
 fingerprints_data = load_fingerprints()
@@ -109,7 +109,7 @@ if not fingerprints_data.empty:
         "fingerprint": "Empreinte Unique"
     })
 
-    st.subheader("Empreintes Numériques")
+    st.subheader("\U0001F9ED Empreintes Numériques")
     st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tentatives Paiement", 
                                     "Total dépensé", "Nombre de transactions", "Empreinte Unique", "Score de Risque"]])
@@ -129,6 +129,6 @@ if not transactions_data.empty:
         "created_at": "Date & Heure"
     })
 
-    st.subheader("Transactions")
+    st.subheader("\U0001F4B3 Transactions")
     st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Type Transaction", "Montant"]])
