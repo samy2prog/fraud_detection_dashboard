@@ -24,7 +24,7 @@ def load_fingerprints():
                    COALESCE(SUM(t.amount), 0) AS total_spent,
                    COUNT(t.id) AS total_transactions
             FROM user_fingerprints uf
-            LEFT JOIN transactions t ON uf.id = t.fingerprint_id
+            LEFT JOIN transactions t ON uf.id = t.id
             GROUP BY uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
                      uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at
         """)
@@ -39,7 +39,7 @@ def load_fingerprints():
 def load_transactions():
     try:
         query = text("""
-            SELECT fingerprint_id, user_agent, ip_address, screen_resolution, timezone, language, 
+            SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
                    transaction_type, amount, created_at 
             FROM transactions
         """)
