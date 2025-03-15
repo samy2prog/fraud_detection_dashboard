@@ -1,14 +1,16 @@
 from fastapi import FastAPI, HTTPException
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
 import uuid
 
 # Connexion à la base de données PostgreSQL (Supabase)
 DATABASE_URL = "postgresql://postgres:XGXgDGiGuhzbnfFH@db.yawimpxwrcadpsizozfp.supabase.co:5432/postgres"
 
-conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-cursor = conn.cursor()
+# Configuration de SQLAlchemy
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+db = SessionLocal()
 
 # Création de l'application FastAPI
 app = FastAPI()
@@ -30,22 +32,36 @@ class UserFingerprint(BaseModel):
 @app.post("/collect_fingerprint/")
 def collect_fingerprint(fingerprint: UserFingerprint):
     user_id = str(uuid.uuid4())
-    cursor.execute('''
+    query = text('''
         INSERT INTO user_fingerprints (id, user_agent, ip_address, timezone, screen_resolution, language, 
         account_age, average_refund_time, payment_attempts, country_ip, country_shipping)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    ''', (user_id, fingerprint.user_agent, fingerprint.ip_address, fingerprint.timezone, 
-          fingerprint.screen_resolution, fingerprint.language, fingerprint.account_age, 
-          fingerprint.average_refund_time, fingerprint.payment_attempts, fingerprint.country_ip, fingerprint.country_shipping))
-    conn.commit()
+        VALUES (:id, :user_agent, :ip_address, :timezone, :screen_resolution, :language, 
+                :account_age, :average_refund_time, :payment_attempts, :country_ip, :country_shipping)
+    ''')
+    
+    db.execute(query, {
+        "id": user_id,
+        "user_agent": fingerprint.user_agent,
+        "ip_address": fingerprint.ip_address,
+        "timezone": fingerprint.timezone,
+        "screen_resolution": fingerprint.screen_resolution,
+        "language": fingerprint.language,
+        "account_age": fingerprint.account_age,
+        "average_refund_time": fingerprint.average_refund_time,
+        "payment_attempts": fingerprint.payment_attempts,
+        "country_ip": fingerprint.country_ip,
+        "country_shipping": fingerprint.country_shipping
+    })
+    db.commit()
     return {"message": "Fingerprint stored successfully", "user_id": user_id}
 
 # Endpoint pour récupérer toutes les empreintes numériques
 @app.get("/fingerprints/")
 def get_fingerprints():
-    cursor.execute("SELECT * FROM user_fingerprints")
-    fingerprints = cursor.fetchall()
-    return {"data": fingerprints}
+    query = text("SELECT * FROM user_fingerprints")
+    result = db.execute(query)
+    fingerprints = result.fetchall()
+    return {"data": [dict(row) for row in fingerprints]}
 
 # Vérification de l'état de l'API
 @app.get("/")
