@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import create_engine, MetaData, Table, Column, String, Float, DateTime, text, ForeignKey
+from sqlalchemy import create_engine, MetaData, Table, Column, String, Float, DateTime, text
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.middleware.cors import CORSMiddleware
 import uuid
@@ -37,39 +37,32 @@ class UserFingerprint(BaseModel):
 
 # 📌 Définition du modèle pour les transactions
 class Transaction(BaseModel):
-    fingerprint_id: str
+    user_agent: str
+    ip_address: str
+    timezone: str
+    screen_resolution: str
+    language: str
     transaction_type: str
     amount: float
+    fingerprint_id: str  # Lien avec empreinte numérique
 
-# 📌 Création des tables si elles n'existent pas
-tables_metadata = MetaData()
-
-fingerprints_table = Table(
-    "user_fingerprints", tables_metadata,
+# 📌 Vérification et création de la table `transactions`
+metadata = MetaData()
+transactions_table = Table(
+    "transactions", metadata,
     Column("id", String, primary_key=True),
     Column("user_agent", String),
     Column("ip_address", String),
     Column("timezone", String),
     Column("screen_resolution", String),
     Column("language", String),
-    Column("account_age", Float),
-    Column("average_refund_time", Float),
-    Column("payment_attempts", Float),
-    Column("country_ip", String),
-    Column("country_shipping", String),
-    Column("created_at", DateTime, default=datetime.utcnow)
-)
-
-transactions_table = Table(
-    "transactions", tables_metadata,
-    Column("id", String, primary_key=True),
-    Column("fingerprint_id", String, ForeignKey("user_fingerprints.id")),
     Column("transaction_type", String),
     Column("amount", Float),
-    Column("created_at", DateTime, default=datetime.utcnow)
+    Column("created_at", DateTime, default=datetime.utcnow),
+    Column("fingerprint_id", String)  # Nouvelle colonne pour relier l'empreinte
 )
 
-tables_metadata.create_all(engine)
+metadata.create_all(engine)
 
 # 📌 Endpoint pour collecter l'empreinte numérique
 @app.post("/collect_fingerprint/")
@@ -84,7 +77,19 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
                     :account_age, :average_refund_time, :payment_attempts, :country_ip, :country_shipping, NOW())
         """)
         with engine.connect() as conn:
-            conn.execute(query, fingerprint.dict() | {"id": user_id})
+            conn.execute(query, {
+                "id": user_id,
+                "user_agent": fingerprint.user_agent,
+                "ip_address": fingerprint.ip_address,
+                "timezone": fingerprint.timezone,
+                "screen_resolution": fingerprint.screen_resolution,
+                "language": fingerprint.language,
+                "account_age": fingerprint.account_age,
+                "average_refund_time": fingerprint.average_refund_time,
+                "payment_attempts": fingerprint.payment_attempts,
+                "country_ip": fingerprint.country_ip,
+                "country_shipping": fingerprint.country_shipping
+            })
             conn.commit()
         return {"message": "Fingerprint stored successfully", "user_id": user_id}
     except SQLAlchemyError as e:
@@ -97,13 +102,25 @@ async def record_transaction(transaction: Transaction):
         transaction_id = str(uuid.uuid4())
         query = text("""
             INSERT INTO transactions (
-                id, fingerprint_id, transaction_type, amount, created_at
+                id, user_agent, ip_address, timezone, screen_resolution, language, 
+                transaction_type, amount, created_at, fingerprint_id
             ) VALUES (
-                :id, :fingerprint_id, :transaction_type, :amount, NOW()
+                :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
+                :transaction_type, :amount, NOW(), :fingerprint_id
             )
         """)
         with engine.connect() as conn:
-            conn.execute(query, transaction.dict() | {"id": transaction_id})
+            conn.execute(query, {
+                "id": transaction_id,
+                "user_agent": transaction.user_agent,
+                "ip_address": transaction.ip_address,
+                "timezone": transaction.timezone,
+                "screen_resolution": transaction.screen_resolution,
+                "language": transaction.language,
+                "transaction_type": transaction.transaction_type,
+                "amount": transaction.amount,
+                "fingerprint_id": transaction.fingerprint_id
+            })
             conn.commit()
         return {"message": "Transaction enregistrée avec succès", "transaction_id": transaction_id}
     except SQLAlchemyError as e:
