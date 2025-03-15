@@ -1,5 +1,4 @@
 import uuid
-import hashlib
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
@@ -8,15 +7,14 @@ from pydantic import BaseModel
 
 # Connexion à la base de données PostgreSQL (NeonDB)
 DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
-
-gine = create_engine(DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 app = FastAPI()
 
 # Activer CORS pour permettre les requêtes depuis site1
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://site1bis.onrender.com"],
+    allow_origins=["*"],  # Autoriser toutes les origines (tu peux restreindre à ton domaine)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,10 +88,10 @@ async def record_transaction(transaction: Transaction):
         query = text("""
             INSERT INTO transactions (
                 id, user_agent, ip_address, timezone, screen_resolution, language, 
-                transaction_type, amount
+                transaction_type, amount, created_at
             ) VALUES (
                 :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
-                :transaction_type, :amount
+                :transaction_type, :amount, NOW()
             )
         """)
         with engine.connect() as conn:
