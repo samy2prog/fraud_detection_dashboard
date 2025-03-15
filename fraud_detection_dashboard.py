@@ -20,9 +20,11 @@ def load_fingerprints():
         query = text("""
             SELECT uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
                    uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at, 
-                   COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN 1 ELSE 0 END), 0) AS refund_count
+                   COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN 1 ELSE 0 END), 0) AS refund_count,
+                   COALESCE(SUM(t.amount), 0) AS total_spent,
+                   COUNT(t.id) AS total_transactions
             FROM user_fingerprints uf
-            LEFT JOIN transactions t ON uf.ip_address = t.ip_address
+            LEFT JOIN transactions t ON uf.id = t.user_id
             GROUP BY uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
                      uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at
         """)
@@ -98,6 +100,8 @@ if not fingerprints_data.empty:
         "language": "Langue",
         "refund_count": "Remboursements",
         "payment_attempts": "Tentatives Paiement",
+        "total_spent": "Total dépensé",
+        "total_transactions": "Nombre de transactions",
         "country_ip": "Pays IP",
         "country_shipping": "Pays Livraison",
         "created_at": "Date & Heure",
@@ -108,7 +112,7 @@ if not fingerprints_data.empty:
     st.subheader("Empreintes Numériques")
     st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tentatives Paiement", 
-                                    "Empreinte Unique", "Score de Risque"]])
+                                    "Total dépensé", "Nombre de transactions", "Empreinte Unique", "Score de Risque"]])
 
 # Transformer et afficher les transactions
 if not transactions_data.empty:
