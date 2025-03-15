@@ -16,7 +16,7 @@ app = FastAPI()
 # 📌 Configuration CORS pour accepter les requêtes de site1bis
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Sécuriser en précisant ["https://site1bis.onrender.com"]
+    allow_origins=["*"],  # Tu peux restreindre à ["https://site1bis.onrender.com"] pour plus de sécurité
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,28 +37,45 @@ class UserFingerprint(BaseModel):
 
 # 📌 Définition du modèle pour les transactions
 class Transaction(BaseModel):
-    fingerprint_id: str  # Associer une transaction à une empreinte
+    fingerprint_id: str
     transaction_type: str
     amount: float
 
-# 📌 Vérification et création des tables si elles n'existent pas
-metadata = MetaData()
-transactions_table = Table(
-    "transactions", metadata,
+# 📌 Création des tables si elles n'existent pas
+tables_metadata = MetaData()
+
+fingerprints_table = Table(
+    "user_fingerprints", tables_metadata,
     Column("id", String, primary_key=True),
-    Column("fingerprint_id", String, ForeignKey("user_fingerprints.id")),  # Associer la transaction à une empreinte
+    Column("user_agent", String),
+    Column("ip_address", String),
+    Column("timezone", String),
+    Column("screen_resolution", String),
+    Column("language", String),
+    Column("account_age", Float),
+    Column("average_refund_time", Float),
+    Column("payment_attempts", Float),
+    Column("country_ip", String),
+    Column("country_shipping", String),
+    Column("created_at", DateTime, default=datetime.utcnow)
+)
+
+transactions_table = Table(
+    "transactions", tables_metadata,
+    Column("id", String, primary_key=True),
+    Column("fingerprint_id", String, ForeignKey("user_fingerprints.id")),
     Column("transaction_type", String),
     Column("amount", Float),
     Column("created_at", DateTime, default=datetime.utcnow)
 )
 
-metadata.create_all(engine)
+tables_metadata.create_all(engine)
 
-# 📌 Endpoint pour collecter une empreinte numérique
+# 📌 Endpoint pour collecter l'empreinte numérique
 @app.post("/collect_fingerprint/")
 async def collect_fingerprint(fingerprint: UserFingerprint):
     try:
-        fingerprint_id = str(uuid.uuid4())  # Génération d'un identifiant unique
+        user_id = str(uuid.uuid4())
         query = text("""
             INSERT INTO user_fingerprints (id, user_agent, ip_address, timezone, screen_resolution,
                                            language, account_age, average_refund_time, payment_attempts,
@@ -67,21 +84,9 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
                     :account_age, :average_refund_time, :payment_attempts, :country_ip, :country_shipping, NOW())
         """)
         with engine.connect() as conn:
-            conn.execute(query, {
-                "id": fingerprint_id,
-                "user_agent": fingerprint.user_agent,
-                "ip_address": fingerprint.ip_address,
-                "timezone": fingerprint.timezone,
-                "screen_resolution": fingerprint.screen_resolution,
-                "language": fingerprint.language,
-                "account_age": fingerprint.account_age,
-                "average_refund_time": fingerprint.average_refund_time,
-                "payment_attempts": fingerprint.payment_attempts,
-                "country_ip": fingerprint.country_ip,
-                "country_shipping": fingerprint.country_shipping
-            })
+            conn.execute(query, fingerprint.dict() | {"id": user_id})
             conn.commit()
-        return {"message": "Fingerprint stored successfully", "fingerprint_id": fingerprint_id}
+        return {"message": "Fingerprint stored successfully", "user_id": user_id}
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement: {str(e)}")
 
@@ -89,7 +94,7 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
 @app.post("/transaction/")
 async def record_transaction(transaction: Transaction):
     try:
-        transaction_id = str(uuid.uuid4())  # Génération d'un identifiant unique
+        transaction_id = str(uuid.uuid4())
         query = text("""
             INSERT INTO transactions (
                 id, fingerprint_id, transaction_type, amount, created_at
@@ -98,12 +103,7 @@ async def record_transaction(transaction: Transaction):
             )
         """)
         with engine.connect() as conn:
-            conn.execute(query, {
-                "id": transaction_id,
-                "fingerprint_id": transaction.fingerprint_id,  # Associer la transaction à une empreinte
-                "transaction_type": transaction.transaction_type,
-                "amount": transaction.amount
-            })
+            conn.execute(query, transaction.dict() | {"id": transaction_id})
             conn.commit()
         return {"message": "Transaction enregistrée avec succès", "transaction_id": transaction_id}
     except SQLAlchemyError as e:
