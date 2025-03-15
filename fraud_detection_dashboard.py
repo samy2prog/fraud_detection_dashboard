@@ -4,7 +4,7 @@ import requests
 from sqlalchemy import create_engine, text
 import hashlib
 
-# 📌 Connexion à la base de données PostgreSQL
+# \ud83d\udccc Connexion \u00e0 la base de donn\u00e9es PostgreSQL
 DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
 
 try:
@@ -12,9 +12,9 @@ try:
     conn = engine.connect()
     conn.close()
 except Exception as e:
-    st.error(f"❌ Erreur de connexion à la base de données : {e}")
+    st.error(f"\u274c Erreur de connexion \u00e0 la base de donn\u00e9es : {e}")
 
-# 📌 Charger les données des empreintes numériques
+# \ud83d\udccc Charger les donn\u00e9es des empreintes num\u00e9riques
 def load_fingerprints():
     try:
         query = text("""
@@ -22,17 +22,18 @@ def load_fingerprints():
                    uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at, 
                    COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN 1 ELSE 0 END), 0) AS refund_count
             FROM user_fingerprints uf
-            LEFT JOIN transactions t ON uf.id = t.user_id
-            GROUP BY uf.id
+            LEFT JOIN transactions t ON uf.ip_address = t.ip_address
+            GROUP BY uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
+                     uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at
         """)
         with engine.connect() as conn:
             df = pd.read_sql(query, conn)
         return df
     except Exception as e:
-        st.error(f"❌ Erreur lors du chargement des empreintes numériques : {e}")
+        st.error(f"\u274c Erreur lors du chargement des empreintes num\u00e9riques : {e}")
         return pd.DataFrame()
 
-# 📌 Charger les transactions
+# \ud83d\udccc Charger les transactions
 def load_transactions():
     try:
         query = text("""
@@ -44,17 +45,17 @@ def load_transactions():
             df = pd.read_sql(query, conn)
         return df
     except Exception as e:
-        st.error(f"❌ Erreur lors du chargement des transactions : {e}")
+        st.error(f"\u274c Erreur lors du chargement des transactions : {e}")
         return pd.DataFrame()
 
-# 📌 Générer un identifiant unique basé sur plusieurs caractéristiques
+# \ud83d\udccc G\u00e9n\u00e9rer un identifiant unique bas\u00e9 sur plusieurs caract\u00e9ristiques
 def generate_fingerprint(df):
     df['fingerprint'] = df.apply(lambda row: hashlib.sha256(
         (row['user_agent'] + row['screen_resolution'] + row['timezone'] + row['ip_address']).encode()
     ).hexdigest(), axis=1)
     return df
 
-# 📌 Calcul du risk score basé sur plusieurs critères
+# \ud83d\udccc Calcul du risk score bas\u00e9 sur plusieurs crit\u00e8res
 def calculate_risk_score(df):
     df['risk_score'] = 0
     df['ip_count'] = df.groupby('fingerprint')['ip_address'].transform('nunique')
@@ -74,15 +75,15 @@ def calculate_risk_score(df):
     df['risk_score'] = df['risk_score'].clip(0, 100)
     return df
 
-# 📌 Interface Streamlit
-st.title("📊 Fraud Detection Dashboard")
-st.write("🚨 Ce tableau de bord affiche les empreintes numériques et les transactions suspectes.")
+# \ud83d\udccc Interface Streamlit
+st.title("\ud83d\udcca Fraud Detection Dashboard")
+st.write("\ud83d\udea8 Ce tableau de bord affiche les empreintes num\u00e9riques et les transactions suspectes.")
 
-# 📌 Charger les empreintes et transactions
+# \ud83d\udccc Charger les empreintes et transactions
 fingerprints_data = load_fingerprints()
 transactions_data = load_transactions()
 
-# 📌 Transformer et afficher les empreintes
+# \ud83d\udccc Transformer et afficher les empreintes
 if not fingerprints_data.empty:
     fingerprints_data = generate_fingerprint(fingerprints_data)
     fingerprints_data = calculate_risk_score(fingerprints_data)
@@ -92,7 +93,7 @@ if not fingerprints_data.empty:
     fingerprints_data = fingerprints_data.rename(columns={
         "user_agent": "Navigateur",
         "ip_address": "Adresse IP",
-        "screen_resolution": "Résolution Écran",
+        "screen_resolution": "R\u00e9solution \u00c9cran",
         "timezone": "Fuseau Horaire",
         "language": "Langue",
         "refund_count": "Remboursements",
@@ -104,19 +105,19 @@ if not fingerprints_data.empty:
         "fingerprint": "Empreinte Unique"
     })
 
-    st.subheader("📌 Empreintes Numériques")
-    st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
+    st.subheader("\ud83d\udcc9 Empreintes Num\u00e9riques")
+    st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "R\u00e9solution \u00c9cran", "Fuseau Horaire",
                                     "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tentatives Paiement", 
                                     "Empreinte Unique", "Score de Risque"]])
 
-# 📌 Transformer et afficher les transactions
+# \ud83d\udccc Transformer et afficher les transactions
 if not transactions_data.empty:
     transactions_data['created_at'] = pd.to_datetime(transactions_data['created_at']).dt.strftime("%Y-%m-%d %H:%M:%S")
 
     transactions_data = transactions_data.rename(columns={
         "user_agent": "Navigateur",
         "ip_address": "Adresse IP",
-        "screen_resolution": "Résolution Écran",
+        "screen_resolution": "R\u00e9solution \u00c9cran",
         "timezone": "Fuseau Horaire",
         "language": "Langue",
         "transaction_type": "Type Transaction",
@@ -124,6 +125,6 @@ if not transactions_data.empty:
         "created_at": "Date & Heure"
     })
 
-    st.subheader("💳 Transactions")
-    st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
+    st.subheader("\ud83d\udcb3 Transactions")
+    st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "R\u00e9solution \u00c9cran", "Fuseau Horaire",
                                     "Langue", "Type Transaction", "Montant"]])
