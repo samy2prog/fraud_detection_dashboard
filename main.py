@@ -44,7 +44,7 @@ class Transaction(BaseModel):
     language: str
     transaction_type: str
     amount: float
-    fingerprint_id: str
+
 # 📌 Vérification et création de la table `transactions`
 metadata = MetaData()
 transactions_table = Table(
