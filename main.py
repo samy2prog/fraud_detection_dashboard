@@ -98,12 +98,15 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
 async def record_transaction(transaction: Transaction):
     try:
         transaction_id = str(uuid.uuid4())  # Génération d'un identifiant unique
-	query = text("""
-    	    INSERT INTO transactions (id, user_agent, ip_address, timezone, screen_resolution, language, 
-       				      transaction_type, amount, created_at, fingerprint_id) 
-	    VALUES (:id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,:transaction_type, :amount, NOW(), :fingerprint_id)
+        query = text("""
+            INSERT INTO transactions (
+                id, user_agent, ip_address, timezone, screen_resolution, language, 
+                transaction_type, amount, created_at
+            ) VALUES (
+                :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
+                :transaction_type, :amount, NOW()
+            )
         """)
-
 
         with engine.connect() as conn:
             conn.execute(query, {
