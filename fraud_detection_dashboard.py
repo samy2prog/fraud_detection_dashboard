@@ -4,7 +4,7 @@ import requests
 from sqlalchemy import create_engine, text
 import hashlib
 
-# Connexion à la base de données PostgreSQL
+# 📌 Connexion à la base de données PostgreSQL
 DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
 
 try:
@@ -14,19 +14,13 @@ try:
 except Exception as e:
     st.error(f"❌ Erreur de connexion à la base de données : {e}")
 
-# Charger les données des empreintes numériques
+# 📌 Charger les données des empreintes numériques
 def load_fingerprints():
     try:
         query = text("""
-            SELECT uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
-                   uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at, 
-                   COALESCE(SUM(CASE WHEN t.transaction_type = 'refund' THEN 1 ELSE 0 END), 0) AS refund_count,
-                   COALESCE(SUM(t.amount), 0) AS total_spent,
-                   COUNT(t.id) AS total_transactions
-            FROM user_fingerprints uf
-            LEFT JOIN transactions t ON uf.id = t.id
-            GROUP BY uf.id, uf.user_agent, uf.ip_address, uf.screen_resolution, uf.timezone, uf.language, 
-                     uf.payment_attempts, uf.country_ip, uf.country_shipping, uf.created_at
+            SELECT id, user_agent, ip_address, screen_resolution, timezone, language, 
+                   refund_count, payment_attempts, country_ip, country_shipping, created_at 
+            FROM user_fingerprints
         """)
         with engine.connect() as conn:
             df = pd.read_sql(query, conn)
@@ -35,7 +29,7 @@ def load_fingerprints():
         st.error(f"❌ Erreur lors du chargement des empreintes numériques : {e}")
         return pd.DataFrame()
 
-# Charger les transactions
+# 📌 Charger les transactions
 def load_transactions():
     try:
         query = text("""
@@ -50,14 +44,14 @@ def load_transactions():
         st.error(f"❌ Erreur lors du chargement des transactions : {e}")
         return pd.DataFrame()
 
-# Générer un identifiant unique basé sur plusieurs caractéristiques
+# 📌 Générer un identifiant unique basé sur plusieurs caractéristiques
 def generate_fingerprint(df):
     df['fingerprint'] = df.apply(lambda row: hashlib.sha256(
         (row['user_agent'] + row['screen_resolution'] + row['timezone'] + row['ip_address']).encode()
     ).hexdigest(), axis=1)
     return df
 
-# Calcul du risk score basé sur plusieurs critères
+# 📌 Calcul du risk score basé sur plusieurs critères
 def calculate_risk_score(df):
     df['risk_score'] = 0
     df['ip_count'] = df.groupby('fingerprint')['ip_address'].transform('nunique')
@@ -65,27 +59,26 @@ def calculate_risk_score(df):
     df['fingerprint_count'] = df.groupby('ip_address')['fingerprint'].transform('nunique')
     df['risk_score'] += df['fingerprint_count'] * 10
     
+    if 'refund_count' in df.columns:
+        df['refund_requests'] = df.groupby('fingerprint')['refund_count'].transform('sum')
+        df['risk_score'] += df['refund_requests'] * 15
+    
     df['risk_score'] += df['payment_attempts'] * 5
     df['risk_score'] += df.apply(lambda row: 25 if row['country_ip'] != row['country_shipping'] else 0, axis=1)
     df['fingerprint_recurrence'] = df.groupby('fingerprint')['ip_address'].transform('count')
     df['risk_score'] += df['fingerprint_recurrence'] * 8
-    
-    df['risk_score'] += df['refund_count'] * 15
-    df['risk_score'] += df.apply(lambda row: 20 if row['refund_count'] > 2 else 0, axis=1)
-    df['risk_score'] += df.apply(lambda row: 30 if row['refund_count'] + row['payment_attempts'] > 5 else 0, axis=1)
-    
     df['risk_score'] = df['risk_score'].clip(0, 100)
     return df
 
-# Interface Streamlit
-st.title("\U0001F4CA Fraud Detection Dashboard")
-st.write("\U0001F6A8 Ce tableau de bord affiche les empreintes numériques et les transactions suspectes.")
+# 📌 Interface Streamlit
+st.title("📊 Fraud Detection Dashboard")
+st.write("🚨 Ce tableau de bord affiche les empreintes numériques et les transactions suspectes.")
 
-# Charger les empreintes et transactions
+# 📌 Charger les empreintes et transactions
 fingerprints_data = load_fingerprints()
 transactions_data = load_transactions()
 
-# Transformer et afficher les empreintes
+# 📌 Transformer et afficher les empreintes
 if not fingerprints_data.empty:
     fingerprints_data = generate_fingerprint(fingerprints_data)
     fingerprints_data = calculate_risk_score(fingerprints_data)
@@ -100,8 +93,6 @@ if not fingerprints_data.empty:
         "language": "Langue",
         "refund_count": "Remboursements",
         "payment_attempts": "Tentatives Paiement",
-        "total_spent": "Total dépensé",
-        "total_transactions": "Nombre de transactions",
         "country_ip": "Pays IP",
         "country_shipping": "Pays Livraison",
         "created_at": "Date & Heure",
@@ -109,12 +100,12 @@ if not fingerprints_data.empty:
         "fingerprint": "Empreinte Unique"
     })
 
-    st.subheader("\U0001F9ED Empreintes Numériques")
+    st.subheader("📌 Empreintes Numériques")
     st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tentatives Paiement", 
-                                    "Total dépensé", "Nombre de transactions", "Empreinte Unique", "Score de Risque"]])
+                                    "Empreinte Unique", "Score de Risque"]])
 
-# Transformer et afficher les transactions
+# 📌 Transformer et afficher les transactions
 if not transactions_data.empty:
     transactions_data['created_at'] = pd.to_datetime(transactions_data['created_at']).dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -129,6 +120,6 @@ if not transactions_data.empty:
         "created_at": "Date & Heure"
     })
 
-    st.subheader("\U0001F4B3 Transactions")
+    st.subheader("💳 Transactions")
     st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
                                     "Langue", "Type Transaction", "Montant"]])

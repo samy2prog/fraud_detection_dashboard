@@ -44,7 +44,6 @@ class Transaction(BaseModel):
     language: str
     transaction_type: str
     amount: float
-    fingerprint_id: str  # Lien avec empreinte numérique
 
 # 📌 Vérification et création de la table `transactions`
 metadata = MetaData()
@@ -58,8 +57,7 @@ transactions_table = Table(
     Column("language", String),
     Column("transaction_type", String),
     Column("amount", Float),
-    Column("created_at", DateTime, default=datetime.utcnow),
-    Column("fingerprint_id", String)  # Nouvelle colonne pour relier l'empreinte
+    Column("created_at", DateTime, default=datetime.utcnow)
 )
 
 metadata.create_all(engine)
@@ -68,7 +66,7 @@ metadata.create_all(engine)
 @app.post("/collect_fingerprint/")
 async def collect_fingerprint(fingerprint: UserFingerprint):
     try:
-        user_id = str(uuid.uuid4())
+        user_id = str(uuid.uuid4())  # Génération d'un identifiant unique
         query = text("""
             INSERT INTO user_fingerprints (id, user_agent, ip_address, timezone, screen_resolution,
                                            language, account_age, average_refund_time, payment_attempts,
@@ -99,14 +97,14 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
 @app.post("/transaction/")
 async def record_transaction(transaction: Transaction):
     try:
-        transaction_id = str(uuid.uuid4())
+        transaction_id = str(uuid.uuid4())  # Génération d'un identifiant unique
         query = text("""
             INSERT INTO transactions (
                 id, user_agent, ip_address, timezone, screen_resolution, language, 
-                transaction_type, amount, created_at, fingerprint_id
+                transaction_type, amount, created_at
             ) VALUES (
                 :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
-                :transaction_type, :amount, NOW(), :fingerprint_id
+                :transaction_type, :amount, NOW()
             )
         """)
         with engine.connect() as conn:
@@ -118,8 +116,7 @@ async def record_transaction(transaction: Transaction):
                 "screen_resolution": transaction.screen_resolution,
                 "language": transaction.language,
                 "transaction_type": transaction.transaction_type,
-                "amount": transaction.amount,
-                "fingerprint_id": transaction.fingerprint_id
+                "amount": transaction.amount
             })
             conn.commit()
         return {"message": "Transaction enregistrée avec succès", "transaction_id": transaction_id}
