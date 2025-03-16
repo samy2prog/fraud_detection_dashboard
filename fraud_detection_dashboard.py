@@ -1,4 +1,4 @@
-#fraud_detection_dashboard.py
+#frauddetectiondashboard2
 
 import streamlit as st
 import pandas as pd
@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, text
 import hashlib
 
 # 📌 Connexion à la base de données PostgreSQL
-DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL = "postgresql://neondb_owner:npg_KXoDg7AWT1yF@ep-late-mouse-a25ew7xn-pooler.eu-central>
 
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
@@ -49,7 +49,7 @@ def load_transactions():
 # 📌 Générer un identifiant unique basé sur plusieurs caractéristiques
 def generate_fingerprint(df):
     df['fingerprint'] = df.apply(lambda row: hashlib.sha256(
-        (row['user_agent'] + row['screen_resolution'] + row['timezone'] + row['ip_address']).encode()
+        (row['user_agent'] + row['screen_resolution'] + row['timezone'] + row['ip_address']).encode>
     ).hexdigest(), axis=1)
     return df
 
@@ -66,7 +66,7 @@ def calculate_risk_score(df):
         df['risk_score'] += df['refund_requests'] * 15
     
     df['risk_score'] += df['payment_attempts'] * 5
-    df['risk_score'] += df.apply(lambda row: 25 if row['country_ip'] != row['country_shipping'] else 0, axis=1)
+    df['risk_score'] += df.apply(lambda row: 25 if row['country_ip'] != row['country_shipping'] els>
     df['fingerprint_recurrence'] = df.groupby('fingerprint')['ip_address'].transform('count')
     df['risk_score'] += df['fingerprint_recurrence'] * 8
     df['risk_score'] = df['risk_score'].clip(0, 100)
@@ -79,13 +79,12 @@ st.write("🚨 Ce tableau de bord affiche les empreintes numériques et les tran
 # 📌 Charger les empreintes et transactions
 fingerprints_data = load_fingerprints()
 transactions_data = load_transactions()
-
-# 📌 Transformer et afficher les empreintes
+ 📌 Transformer et afficher les empreintes
 if not fingerprints_data.empty:
     fingerprints_data = generate_fingerprint(fingerprints_data)
     fingerprints_data = calculate_risk_score(fingerprints_data)
 
-    fingerprints_data['created_at'] = pd.to_datetime(fingerprints_data['created_at']).dt.strftime("%Y-%m-%d %H:%M:%S")
+    fingerprints_data['created_at'] = pd.to_datetime(fingerprints_data['created_at']).dt.strftime(">
 
     fingerprints_data = fingerprints_data.rename(columns={
         "user_agent": "Navigateur",
@@ -103,13 +102,13 @@ if not fingerprints_data.empty:
     })
 
     st.subheader("📌 Empreintes Numériques")
-    st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
-                                    "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tentatives Paiement", 
+    st.dataframe(fingerprints_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran",>
+                                    "Langue", "Pays IP", "Pays Livraison", "Remboursements", "Tenta>
                                     "Empreinte Unique", "Score de Risque"]])
 
 # 📌 Transformer et afficher les transactions
 if not transactions_data.empty:
-    transactions_data['created_at'] = pd.to_datetime(transactions_data['created_at']).dt.strftime("%Y-%m-%d %H:%M:%S")
+    transactions_data['created_at'] = pd.to_datetime(transactions_data['created_at']).dt.strftime(">
 
     transactions_data = transactions_data.rename(columns={
         "user_agent": "Navigateur",
@@ -120,9 +119,9 @@ if not transactions_data.empty:
         "transaction_type": "Type Transaction",
         "amount": "Montant",
         "created_at": "Date & Heure"
-    })
+   })
 
     st.subheader("💳 Transactions")
-    st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran", "Fuseau Horaire",
+    st.dataframe(transactions_data[["Date & Heure", "Adresse IP", "Navigateur", "Résolution Écran",>
                                     "Langue", "Type Transaction", "Montant"]])
 
