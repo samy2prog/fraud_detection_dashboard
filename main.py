@@ -44,7 +44,7 @@ class Transaction(BaseModel):
     language: str
     transaction_type: str
     amount: float
-
+    fingerprint_id: str
 # 📌 Vérification et création de la table `transactions`
 metadata = MetaData()
 transactions_table = Table(
@@ -98,15 +98,13 @@ async def collect_fingerprint(fingerprint: UserFingerprint):
 async def record_transaction(transaction: Transaction):
     try:
         transaction_id = str(uuid.uuid4())  # Génération d'un identifiant unique
-        query = text("""
-            INSERT INTO transactions (
-                id, user_agent, ip_address, timezone, screen_resolution, language, 
-                transaction_type, amount, created_at
-            ) VALUES (
-                :id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,
-                :transaction_type, :amount, NOW()
-            )
+	query = text("""
+    	    INSERT INTO transactions (id, user_agent, ip_address, timezone, screen_resolution, language, 
+       				      transaction_type, amount, created_at, fingerprint_id) 
+	    VALUES (:id, :user_agent, :ip_address, :timezone, :screen_resolution, :language,:transaction_type, :amount, NOW(), :fingerprint_id)
         """)
+
+
         with engine.connect() as conn:
             conn.execute(query, {
                 "id": transaction_id,
