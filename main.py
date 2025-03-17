@@ -1,3 +1,5 @@
+#Main.py
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import create_engine, MetaData, Table, Column, String, Float, DateTime, text
@@ -107,7 +109,6 @@ async def record_transaction(transaction: Transaction):
                 :transaction_type, :amount, NOW()
             )
         """)
-
         with engine.connect() as conn:
             conn.execute(query, {
                 "id": transaction_id,
@@ -145,3 +146,4 @@ async def get_transactions():
         return {"data": [dict(row) for row in transactions]}
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
