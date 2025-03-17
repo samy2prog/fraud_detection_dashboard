@@ -48,12 +48,18 @@ def generate_fingerprint(df):
     ).hexdigest(), axis=1)
     return df
 
-# Calcul du risk score basé sur plusieurs critères
+# Calcul du risk score amélioré
 def calculate_risk_score(df):
     df['risk_score'] = 0
-    df['risk_score'] += df['refund_count'] * 20
+    # Ajout pondéré pour le nombre de remboursements
+    df['risk_score'] += df['refund_count'] * 15
+    # Ajout pondéré pour le nombre de tentatives de paiement
     df['risk_score'] += df['payment_attempts'] * 5
+    # Penalité pour incohérence pays IP vs livraison
     df['risk_score'] += df.apply(lambda row: 25 if row['country_ip'] != row['country_shipping'] else 0, axis=1)
+    # Bonus pour compte récent
+    df['risk_score'] += df.apply(lambda row: 20 if row['account_age'] < 30 else 0, axis=1)
+    # Limite max
     df['risk_score'] = df['risk_score'].clip(0, 100)
     return df
 
@@ -78,4 +84,4 @@ if not transactions_data.empty:
 
     st.subheader("💳 Transactions")
     st.dataframe(transactions_data[["created_at", "ip_address", "user_agent", "screen_resolution", "timezone",
-                                    "language", "transaction_type", "amount"]])
+                                    "language", "transaction_type", "amount", "fingerprint_id"]])
